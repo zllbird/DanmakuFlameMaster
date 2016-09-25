@@ -11,6 +11,8 @@ import android.graphics.drawable.Drawable;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Environment;
+
+import master.flame.danmaku.danmaku.model.android.AndroidDisplayer;
 import master.flame.danmaku.danmaku.util.SystemClock;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
@@ -19,10 +21,13 @@ import android.text.TextPaint;
 import android.text.style.BackgroundColorSpan;
 import android.text.style.ImageSpan;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.Menu;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.PopupWindow;
+import android.widget.TextView;
 import android.widget.VideoView;
 
 import java.io.IOException;
@@ -151,6 +156,59 @@ public class MainActivity extends Activity implements View.OnClickListener {
         }
     }
 
+    private class ViewCacheStuffer extends BaseCacheStuffer {
+
+        private final int mMaximumWidthPixels;
+        private final int mMaximumHeightPixels;
+        private ImageView mIcon;
+        private TextView mText;
+        private View mView;
+
+        public ViewCacheStuffer(int resLayoutId) {
+            mView = View.inflate(getApplicationContext(), R.layout.layout_view_cache, null);
+            mIcon = (ImageView) mView.findViewById(R.id.icon);
+            mText = (TextView) mView.findViewById(R.id.text);
+            mMaximumWidthPixels = -1;  // FIXME: get maximum of canvas
+            mMaximumHeightPixels = -1;
+        }
+
+        @Override
+        public void measure(BaseDanmaku danmaku, TextPaint paint, boolean fromWorkerThread) {
+//            if (mProxy != null) {
+//                mProxy.prepareDrawing(danmaku, fromWorkerThread);
+//            }
+            mText.setText(danmaku.text);
+            mText.setTextColor(danmaku.textColor);
+            mText.setTextSize(TypedValue.COMPLEX_UNIT_PX, paint.getTextSize());
+            mView.measure(View.MeasureSpec.makeMeasureSpec(mMaximumWidthPixels, View.MeasureSpec.AT_MOST), View.MeasureSpec.makeMeasureSpec(mMaximumHeightPixels, View.MeasureSpec.AT_MOST));
+            danmaku.paintWidth = mView.getMeasuredWidth();
+            danmaku.paintHeight = mView.getMeasuredHeight();
+            //TODO: async loading image for view
+        }
+
+        @Override
+        public void clearCaches() {
+
+        }
+
+        @Override
+        public void drawDanmaku(BaseDanmaku danmaku, Canvas canvas, float left, float top, boolean fromWorkerThread, AndroidDisplayer.DisplayerConfig displayerConfig) {
+            boolean needRestore = false;
+            if (left != 0 && top != 0) {
+                canvas.save();
+                canvas.translate(left, top);
+                needRestore = true;
+            }
+            mView.layout(0, 0, (int) danmaku.paintWidth, (int) danmaku.paintHeight);
+            mView.draw(canvas); //FIXME: handle canvas.getMaximumBitmapWidth()
+            //TODO: stroke handle displayerConfig
+            if (needRestore) {
+                canvas.restore();
+            }
+        }
+
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -220,9 +278,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
         mDanmakuView = (IDanmakuView) findViewById(R.id.sv_danmaku);
         mContext = DanmakuContext.create();
         mContext.setDanmakuStyle(IDisplayer.DANMAKU_STYLE_STROKEN, 3).setDuplicateMergingEnabled(false).setScrollSpeedFactor(1.2f).setScaleTextSize(1.2f)
-        .setCacheStuffer(new SpannedCacheStuffer(), mCacheStufferAdapter) // 图文混排使用SpannedCacheStuffer
+        .setCacheStuffer(new ViewCacheStuffer(1), mCacheStufferAdapter) // 图文混排使用SpannedCacheStuffer
 //        .setCacheStuffer(new BackgroundCacheStuffer())  // 绘制背景使用BackgroundCacheStuffer
-        .setMaximumLines(maxLinesPair)
+//        .setMaximumLines(maxLinesPair)
         .preventOverlapping(overlappingEnablePair);
         if (mDanmakuView != null) {
             mParser = createParser(this.getResources().openRawResource(R.raw.comments));

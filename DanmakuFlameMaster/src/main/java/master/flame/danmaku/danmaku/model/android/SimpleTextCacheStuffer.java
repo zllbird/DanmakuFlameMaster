@@ -164,16 +164,4 @@ public class SimpleTextCacheStuffer extends BaseCacheStuffer {
 
     }
 
-    @Override
-    public boolean drawCache(BaseDanmaku danmaku, Canvas canvas, float left, float top, Paint alphaPaint, TextPaint paint) {
-        IDrawingCache<?> cache = danmaku.getDrawingCache();
-        if (cache != null) {
-            DrawingCacheHolder holder = (DrawingCacheHolder) cache.get();
-            if (holder != null) {
-                return holder.draw(canvas, left, top, alphaPaint);
-            }
-        }
-        return false;
-    }
-
 }
