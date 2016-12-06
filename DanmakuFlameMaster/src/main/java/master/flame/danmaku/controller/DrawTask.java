@@ -149,9 +149,12 @@ public class DrawTask implements IDrawTask {
     @Override
     public void invalidateDanmaku(BaseDanmaku item, boolean remeasure) {
         mContext.getDisplayer().getCacheStuffer().clearCache(item);
+        item.requestFlags |= BaseDanmaku.FLAG_REQUEST_INVALIDATE;
         if (remeasure) {
             item.paintWidth = -1;
             item.paintHeight = -1;
+            item.requestFlags |= BaseDanmaku.FLAG_REQUEST_REMEASURE;
+            item.measureResetFlag++;
         }
     }
 
@@ -250,10 +253,13 @@ public class DrawTask implements IDrawTask {
         mContext.mGlobalFlagValues.updateVisibleFlag();
         mContext.mGlobalFlagValues.updateFirstShownFlag();
         mContext.mGlobalFlagValues.updateSyncOffsetTimeFlag();
+        mContext.mGlobalFlagValues.updatePrepareFlag();
         mRunningDanmakus = new Danmakus(Danmakus.ST_BY_LIST);
         mStartRenderTime = mills < 1000 ? 0 : mills;
         mRenderingState.reset();
         mRenderingState.endTime = mStartRenderTime;
+        mLastBeginMills = mLastEndMills = 0;
+
         if (danmakuList != null) {
             BaseDanmaku last = danmakuList.last();
             if (last != null && !last.isTimeOut()) {

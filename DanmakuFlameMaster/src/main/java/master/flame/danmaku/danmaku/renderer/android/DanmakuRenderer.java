@@ -85,7 +85,6 @@ public class DanmakuRenderer extends Renderer {
             drawItem = itr.next();
 
             if (drawItem.isTimeOut()) {
-                itr.remove();
                 disp.recycle(drawItem);
                 continue;
             }
@@ -119,6 +118,11 @@ public class DanmakuRenderer extends Renderer {
             // measure
             if (!drawItem.isMeasured()) {
                 drawItem.measure(disp, false);
+            }
+
+            // notify prepare drawing
+            if (!drawItem.isPrepared()) {
+                drawItem.prepare(disp, false);
             }
 
             // layout

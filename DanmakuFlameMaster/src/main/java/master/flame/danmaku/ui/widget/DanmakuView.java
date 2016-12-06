@@ -160,9 +160,9 @@ public class DanmakuView extends View implements IDanmakuView, IDanmakuViewContr
         if (handler != null) {
             handler.quit();
         }
-        if (mHandlerThread != null) {
-            HandlerThread handlerThread = this.mHandlerThread;
-            mHandlerThread = null;
+        HandlerThread handlerThread = this.mHandlerThread;
+        mHandlerThread = null;
+        if (handlerThread != null) {
             try {
                 handlerThread.join();
             } catch (InterruptedException e) {
@@ -238,7 +238,11 @@ public class DanmakuView extends View implements IDanmakuView, IDanmakuViewContr
     private float fps() {
         long lastTime = SystemClock.uptimeMillis();
         mDrawTimes.addLast(lastTime);
-        float dtime = lastTime - mDrawTimes.getFirst();
+        Long first = mDrawTimes.peekFirst();
+        if (first == null) {
+            return 0.0f;
+        }
+        float dtime = lastTime - first;
         int frames = mDrawTimes.size();
         if (frames > MAX_RECORD_SIZE) {
             mDrawTimes.removeFirst();
@@ -347,8 +351,10 @@ public class DanmakuView extends View implements IDanmakuView, IDanmakuViewContr
 
     @Override
     public void pause() {
-        if (handler != null)
+        if (handler != null) {
+            handler.removeCallbacks(mResumeRunnable);
             handler.pause();
+        }
     }
 
     private int mResumeTryCount = 0;
@@ -372,7 +378,7 @@ public class DanmakuView extends View implements IDanmakuView, IDanmakuViewContr
     public void resume() {
         if (handler != null && handler.isPrepared()) {
             mResumeTryCount = 0;
-            handler.postDelayed(mResumeRunnable, 100);
+            handler.post(mResumeRunnable);
         }  else if (handler == null) {
             restart();
         }

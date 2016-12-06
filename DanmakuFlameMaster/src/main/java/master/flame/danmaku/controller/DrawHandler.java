@@ -25,10 +25,10 @@ import android.util.DisplayMetrics;
 
 import java.util.LinkedList;
 
+import master.flame.danmaku.danmaku.model.AbsDanmakuSync;
 import master.flame.danmaku.danmaku.model.AbsDisplayer;
 import master.flame.danmaku.danmaku.model.BaseDanmaku;
 import master.flame.danmaku.danmaku.model.DanmakuTimer;
-import master.flame.danmaku.danmaku.model.AbsDanmakuSync;
 import master.flame.danmaku.danmaku.model.IDanmakus;
 import master.flame.danmaku.danmaku.model.IDisplayer;
 import master.flame.danmaku.danmaku.model.android.DanmakuContext;
@@ -237,6 +237,7 @@ public class DrawHandler extends Handler {
                     pausedPosition = position;
                 }
             case RESUME:
+                removeMessages(DrawHandler.PAUSE);
                 quitFlag = false;
                 if (mReady) {
                     mRenderingState.reset();
@@ -288,6 +289,7 @@ public class DrawHandler extends Handler {
                     break;
                 }
             case PAUSE:
+                removeMessages(DrawHandler.RESUME);
                 removeMessages(UPDATE);
                 if (drawTask != null) {
                     drawTask.onPlayStateChanged(IDrawTask.PLAY_STATE_PAUSE);
@@ -579,6 +581,7 @@ public class DrawHandler extends Handler {
     }
 
     public void resume() {
+        removeMessages(DrawHandler.PAUSE);
         sendEmptyMessage(DrawHandler.RESUME);
     }
 
@@ -587,6 +590,7 @@ public class DrawHandler extends Handler {
     }
 
     public void pause() {
+        removeMessages(DrawHandler.RESUME);
         syncTimerIfNeeded();
         sendEmptyMessage(DrawHandler.PAUSE);
     }
@@ -618,18 +622,34 @@ public class DrawHandler extends Handler {
         if (drawTask == null)
             return mRenderingState;
 
-        if(!quitFlag && !mInWaitingState) {
+        if (!mInWaitingState) {
             AbsDanmakuSync danmakuSync = mContext.danmakuSync;
-            if (danmakuSync != null && danmakuSync.getSyncState() == AbsDanmakuSync.SYNC_STATE_PLAYING) {
-                long fromTime = timer.currMillisecond;
-                long toTime = danmakuSync.getUptimeMillis();
-                long offset = toTime - fromTime;
-                if (Math.abs(offset) > danmakuSync.getThresholdTimeMills()) {
-                    drawTask.requestSync(fromTime, toTime, offset);
-                    timer.update(toTime);
-                    mTimeBase = SystemClock.uptimeMillis() - toTime;
-                    mRemainingTime = 0;
-                }
+            if (danmakuSync != null) {
+                do {
+                    boolean isSyncPlayingState = danmakuSync.isSyncPlayingState();
+                    if (!isSyncPlayingState && !quitFlag) {
+                        break;
+                    }
+                    int syncState = danmakuSync.getSyncState();
+                    if (syncState == AbsDanmakuSync.SYNC_STATE_PLAYING) {
+                        long fromTime = timer.currMillisecond;
+                        long toTime = danmakuSync.getUptimeMillis();
+                        long offset = toTime - fromTime;
+                        if (Math.abs(offset) > danmakuSync.getThresholdTimeMills()) {
+                            if (isSyncPlayingState && quitFlag) {
+                                resume();
+                            }
+                            drawTask.requestSync(fromTime, toTime, offset);
+                            timer.update(toTime);
+                            mTimeBase = SystemClock.uptimeMillis() - toTime;
+                            mRemainingTime = 0;
+                        }
+                    } else if (syncState == AbsDanmakuSync.SYNC_STATE_HALT) {
+                        if (isSyncPlayingState && !quitFlag) {
+                            pause();
+                        }
+                    }
+                } while (false);
             }
         }
         mDisp.setExtraData(canvas);
@@ -701,7 +721,12 @@ public class DrawHandler extends Handler {
         int frames = mDrawTimes.size();
         if(frames <= 0)
             return 0;
-        long dtime = mDrawTimes.getLast() - mDrawTimes.getFirst();
+        Long first = mDrawTimes.peekFirst();
+        Long last = mDrawTimes.peekLast();
+        if (first == null || last == null) {
+            return 0;
+        }
+        long dtime = last - first;
         return dtime / frames;
     }
 

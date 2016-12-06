@@ -185,9 +185,9 @@ public class DanmakuTextureView extends TextureView implements IDanmakuView, IDa
             handler.quit();
             handler = null;
         }
-        if (mHandlerThread != null) {
-            HandlerThread handlerThread = this.mHandlerThread;
-            mHandlerThread = null;
+        HandlerThread handlerThread = this.mHandlerThread;
+        mHandlerThread = null;
+        if (handlerThread != null) {
             try {
                 handlerThread.join();
             } catch (InterruptedException e) {
@@ -261,7 +261,11 @@ public class DanmakuTextureView extends TextureView implements IDanmakuView, IDa
     private float fps() {
         long lastTime = SystemClock.uptimeMillis();
         mDrawTimes.addLast(lastTime);
-        float dtime = lastTime - mDrawTimes.getFirst();
+        Long first = mDrawTimes.peekFirst();
+        if (first == null) {
+            return 0.0f;
+        }
+        float dtime = lastTime - first;
         int frames = mDrawTimes.size();
         if (frames > MAX_RECORD_SIZE) {
             mDrawTimes.removeFirst();
